@@ -51,6 +51,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
+        run: |
+          set -euo pipefail
+          if [ -f scripts/verify_real.py ]; then
+            echo "Repo đã có mã nguồn, bỏ qua bước giải nén."
+            exit 0
+          fi
+          Z="$(find . -maxdepth 1 -name 'vspace-workspace-s*.zip' -printf '%f\n' | sort -V | tail -n 1)"
+          if [ -z "$Z" ]; then
+            Z="$(find . -maxdepth 1 -name 'vspace-workspace*.zip' -printf '%f\n' | sort | head -n 1)"
+          fi
+          if [ -z "$Z" ]; then
+            echo "::error::Repo không có scripts/ và cũng không có file vspace-workspace*.zip ở gốc. Upload vspace-workspace-s11.zip vào gốc repo."
+            exit 1
+          fi
+          echo "Giải nén $Z vào thư mục làm việc"
+          rm -rf /tmp/unz && mkdir /tmp/unz && unzip -q "$Z" -d /tmp/unz
+          SRC=/tmp/unz
+          if [ "$(find /tmp/unz -mindepth 1 -maxdepth 1 | wc -l)" = "1" ] && [ -d "$(find /tmp/unz -mindepth 1 -maxdepth 1)" ]; then
+            SRC="$(find /tmp/unz -mindepth 1 -maxdepth 1)"
+          fi
+          cp -a "$SRC"/. .
+          for f in scripts/verify_real.py workspace/build.gradle testguest/build.gradle; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$Z không đúng gói vspace-workspace (thiếu $f)"
+              exit 1
+            fi
+          done
+      - name: Kiểm cấu trúc repo (đã đẩy NỘI DUNG giải nén, không phải file .zip?)
+        run: |
+          missing=0
+          for f in scripts/verify_real.py scripts/check.py workspace/build.gradle testguest/build.gradle; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Thiếu $f. Repo phải chứa NỘI DUNG đã giải nén của vspace-workspace-s11.zip (thư mục scripts/, workspace/, testguest/ ở gốc repo), không phải chính file .zip. Xem docs/DEVICE_GUIDE.md, bước 0."
+              missing=1
+            fi
+          done
+          exit "$missing"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
@@ -89,6 +127,34 @@ jobs:
       IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
+        run: |
+          set -euo pipefail
+          if [ -f scripts/verify_real.py ]; then
+            echo "Repo đã có mã nguồn, bỏ qua bước giải nén."
+            exit 0
+          fi
+          Z="$(find . -maxdepth 1 -name 'vspace-workspace-s*.zip' -printf '%f\n' | sort -V | tail -n 1)"
+          if [ -z "$Z" ]; then
+            Z="$(find . -maxdepth 1 -name 'vspace-workspace*.zip' -printf '%f\n' | sort | head -n 1)"
+          fi
+          if [ -z "$Z" ]; then
+            echo "::error::Repo không có scripts/ và cũng không có file vspace-workspace*.zip ở gốc. Upload vspace-workspace-s11.zip vào gốc repo."
+            exit 1
+          fi
+          echo "Giải nén $Z vào thư mục làm việc"
+          rm -rf /tmp/unz && mkdir /tmp/unz && unzip -q "$Z" -d /tmp/unz
+          SRC=/tmp/unz
+          if [ "$(find /tmp/unz -mindepth 1 -maxdepth 1 | wc -l)" = "1" ] && [ -d "$(find /tmp/unz -mindepth 1 -maxdepth 1)" ]; then
+            SRC="$(find /tmp/unz -mindepth 1 -maxdepth 1)"
+          fi
+          cp -a "$SRC"/. .
+          for f in scripts/verify_real.py workspace/build.gradle testguest/build.gradle; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$Z không đúng gói vspace-workspace (thiếu $f)"
+              exit 1
+            fi
+          done
       - name: Lấy lõi NewBlackbox
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -207,6 +273,112 @@ jobs:
           path: core-inspection
           if-no-files-found: ignore
 
+  # Thử nghiệm (không chặn): build engine cho x86_64 (tự build libdobby.a từ mã Dobby gốc) rồi chạy device_suite.py trên emulator x86 có KVM.
+  # Mục đích: kiểm engine/giữ nền/cô lập/ScreenPower trên engine THẬT mà không cần điện thoại ARM. Kết quả pin/nhiệt/OEM vẫn cần máy thật.
+  x86-engine-test:
+    name: engine-x86_64 (emulator KVM, thử nghiệm)
+    needs: checks
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      VSPACE_STRIP_CORE_SPOOF: '1'
+      VSPACE_X86_64: '1'
+      VSPACE_HARDEN_EXPORTS: ${{ inputs.harden_exports && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
+        run: |
+          set -euo pipefail
+          if [ -f scripts/verify_real.py ]; then
+            echo "Repo đã có mã nguồn, bỏ qua bước giải nén."
+            exit 0
+          fi
+          Z="$(find . -maxdepth 1 -name 'vspace-workspace-s*.zip' -printf '%f\n' | sort -V | tail -n 1)"
+          if [ -z "$Z" ]; then
+            Z="$(find . -maxdepth 1 -name 'vspace-workspace*.zip' -printf '%f\n' | sort | head -n 1)"
+          fi
+          if [ -z "$Z" ]; then
+            echo "::error::Repo không có scripts/ và cũng không có file vspace-workspace*.zip ở gốc. Upload vspace-workspace-s11.zip vào gốc repo."
+            exit 1
+          fi
+          echo "Giải nén $Z vào thư mục làm việc"
+          rm -rf /tmp/unz && mkdir /tmp/unz && unzip -q "$Z" -d /tmp/unz
+          SRC=/tmp/unz
+          if [ "$(find /tmp/unz -mindepth 1 -maxdepth 1 | wc -l)" = "1" ] && [ -d "$(find /tmp/unz -mindepth 1 -maxdepth 1)" ]; then
+            SRC="$(find /tmp/unz -mindepth 1 -maxdepth 1)"
+          fi
+          cp -a "$SRC"/. .
+          for f in scripts/verify_real.py workspace/build.gradle testguest/build.gradle; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$Z không đúng gói vspace-workspace (thiếu $f)"
+              exit 1
+            fi
+          done
+      - name: Lấy lõi NewBlackbox
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ env.CORE_REPO }}
+          ref: ${{ env.CORE_REF }}
+          path: core
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - name: Cài NDK đúng phiên bản lõi yêu cầu
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.13846066" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.13846066" >> "$GITHUB_ENV"
+      - name: Build libdobby.a cho x86_64 (lõi chỉ kèm ARM)
+        run: bash scripts/build_dobby.sh core x86_64
+      - name: Phủ module workspace và testguest lên lõi (thêm ABI x86_64)
+        run: bash scripts/overlay.sh core
+      - name: Build debug x86_64 và app thử
+        working-directory: core
+        run: >
+          ./gradlew :workspace:assembleDebug :testguest:assembleDebug
+          -Pabi=x86_64 -PversionCode=${{ github.run_number }} -PversionName="1.1.0-x86ci${{ github.run_number }}"
+          -PupdateRepo=${{ github.repository }} --stacktrace
+      - name: Gom APK
+        run: |
+          mkdir -p x86-apk
+          WS=$(find core/workspace/build/outputs/apk/debug -name '*.apk' | head -n 1)
+          TG=$(find core/testguest/build/outputs/apk/debug -name '*.apk' | head -n 1)
+          if [ -z "$WS" ] || [ -z "$TG" ]; then
+            echo "::error::thiếu APK workspace hoặc testguest"
+            exit 1
+          fi
+          cp "$WS" x86-apk/workspace-x86_64-Debug.apk
+          cp "$TG" x86-apk/testguest.apk
+          unzip -l x86-apk/workspace-x86_64-Debug.apk | grep -q 'lib/x86_64/' || { echo "::error::APK không có lib/x86_64/"; exit 1; }
+          ls -la x86-apk
+      - name: Bật KVM cho emulator (tăng tốc phần cứng)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          script: python3 scripts/device_suite.py --apk-dir x86-apk --no-manual --minutes 3 --out device-result
+      - name: Lưu APK x86_64
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: apk-x86_64-test
+          path: x86-apk
+          if-no-files-found: ignore
+      - name: Lưu kết quả đo trên emulator
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: device-result-x86_64
+          path: device-result
+          if-no-files-found: ignore
+
   emulator-smoke:
     name: emulator-smoke (API ${{ matrix.api }})
     needs: build
@@ -220,6 +392,34 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
+        run: |
+          set -euo pipefail
+          if [ -f scripts/verify_real.py ]; then
+            echo "Repo đã có mã nguồn, bỏ qua bước giải nén."
+            exit 0
+          fi
+          Z="$(find . -maxdepth 1 -name 'vspace-workspace-s*.zip' -printf '%f\n' | sort -V | tail -n 1)"
+          if [ -z "$Z" ]; then
+            Z="$(find . -maxdepth 1 -name 'vspace-workspace*.zip' -printf '%f\n' | sort | head -n 1)"
+          fi
+          if [ -z "$Z" ]; then
+            echo "::error::Repo không có scripts/ và cũng không có file vspace-workspace*.zip ở gốc. Upload vspace-workspace-s11.zip vào gốc repo."
+            exit 1
+          fi
+          echo "Giải nén $Z vào thư mục làm việc"
+          rm -rf /tmp/unz && mkdir /tmp/unz && unzip -q "$Z" -d /tmp/unz
+          SRC=/tmp/unz
+          if [ "$(find /tmp/unz -mindepth 1 -maxdepth 1 | wc -l)" = "1" ] && [ -d "$(find /tmp/unz -mindepth 1 -maxdepth 1)" ]; then
+            SRC="$(find /tmp/unz -mindepth 1 -maxdepth 1)"
+          fi
+          cp -a "$SRC"/. .
+          for f in scripts/verify_real.py workspace/build.gradle testguest/build.gradle; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$Z không đúng gói vspace-workspace (thiếu $f)"
+              exit 1
+            fi
+          done
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: workspace-arm64-v8a
@@ -235,6 +435,11 @@ jobs:
           sudo apt-get install -y -qq aapt apksigner
           VSPACE_FIXTURE_OUT="$PWD/fixtures" python3 scripts/verify_real.py --fetch
           ls -la fixtures
+      - name: Bật KVM cho emulator (tăng tốc phần cứng)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: ${{ matrix.api }}
@@ -269,6 +474,34 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+      - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
+        run: |
+          set -euo pipefail
+          if [ -f scripts/verify_real.py ]; then
+            echo "Repo đã có mã nguồn, bỏ qua bước giải nén."
+            exit 0
+          fi
+          Z="$(find . -maxdepth 1 -name 'vspace-workspace-s*.zip' -printf '%f\n' | sort -V | tail -n 1)"
+          if [ -z "$Z" ]; then
+            Z="$(find . -maxdepth 1 -name 'vspace-workspace*.zip' -printf '%f\n' | sort | head -n 1)"
+          fi
+          if [ -z "$Z" ]; then
+            echo "::error::Repo không có scripts/ và cũng không có file vspace-workspace*.zip ở gốc. Upload vspace-workspace-s11.zip vào gốc repo."
+            exit 1
+          fi
+          echo "Giải nén $Z vào thư mục làm việc"
+          rm -rf /tmp/unz && mkdir /tmp/unz && unzip -q "$Z" -d /tmp/unz
+          SRC=/tmp/unz
+          if [ "$(find /tmp/unz -mindepth 1 -maxdepth 1 | wc -l)" = "1" ] && [ -d "$(find /tmp/unz -mindepth 1 -maxdepth 1)" ]; then
+            SRC="$(find /tmp/unz -mindepth 1 -maxdepth 1)"
+          fi
+          cp -a "$SRC"/. .
+          for f in scripts/verify_real.py workspace/build.gradle testguest/build.gradle; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$Z không đúng gói vspace-workspace (thiếu $f)"
+              exit 1
+            fi
+          done
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: workspace-*
