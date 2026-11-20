@@ -50,7 +50,7 @@ jobs:
     name: checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
         run: |
           set -euo pipefail
@@ -89,10 +89,10 @@ jobs:
             fi
           done
           exit "$missing"
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.12'
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
           java-version: '21'
@@ -126,7 +126,7 @@ jobs:
       ABI: ${{ matrix.abi }}
       IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
         run: |
           set -euo pipefail
@@ -156,12 +156,12 @@ jobs:
             fi
           done
       - name: Lấy lõi NewBlackbox
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ env.CORE_REPO }}
           ref: ${{ env.CORE_REF }}
           path: core
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
           java-version: '21'
@@ -170,9 +170,11 @@ jobs:
             core/**/*.gradle*
             core/gradle/wrapper/gradle-wrapper.properties
             core/gradle/libs.versions.toml
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: ''   # không cài thêm gói qua sdkmanager (bản v3 cũ mặc định gọi gói 'tools' đã bị Google gỡ, gây lỗi ở lượt #10); platform-tools có sẵn trên runner, Gradle tự cài NDK/platform
       - name: Chấp nhận giấy phép Android SDK
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+        run: yes | sdkmanager --licenses > /dev/null || true
       - name: Phủ module workspace và testguest lên lõi
         run: bash scripts/overlay.sh core
       - name: Ghi thông tin lõi cho artifact core-inspection
@@ -252,13 +254,13 @@ jobs:
             python scripts/apk_report.py "$a" --budget-mb "$APK_BUDGET_MB" | tee -a "reports/apk-report-${ABI}.txt"
           done
       - name: Lưu APK
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: workspace-${{ matrix.abi }}
           path: dist/*.apk
           if-no-files-found: error
       - name: Lưu báo cáo
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: reports-${{ matrix.abi }}
           path: |
@@ -267,7 +269,7 @@ jobs:
           if-no-files-found: ignore
       - name: Lưu core-inspection
         if: matrix.abi == 'arm64-v8a'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: core-inspection
           path: core-inspection
@@ -285,7 +287,7 @@ jobs:
       VSPACE_X86_64: '1'
       VSPACE_HARDEN_EXPORTS: ${{ inputs.harden_exports && '1' || '0' }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
         run: |
           set -euo pipefail
@@ -315,20 +317,22 @@ jobs:
             fi
           done
       - name: Lấy lõi NewBlackbox
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ env.CORE_REPO }}
           ref: ${{ env.CORE_REF }}
           path: core
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: ''   # không cài thêm gói qua sdkmanager (bản v3 cũ mặc định gọi gói 'tools' đã bị Google gỡ, gây lỗi ở lượt #10); platform-tools có sẵn trên runner, Gradle tự cài NDK/platform
       - name: Cài NDK đúng phiên bản lõi yêu cầu
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.13846066" > /dev/null
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "ndk;29.0.13846066" > /dev/null
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.13846066" >> "$GITHUB_ENV"
       - name: Build libdobby.a cho x86_64 (lõi chỉ kèm ARM)
         run: bash scripts/build_dobby.sh core x86_64
@@ -366,14 +370,14 @@ jobs:
           script: python3 scripts/device_suite.py --apk-dir x86-apk --no-manual --minutes 3 --out device-result
       - name: Lưu APK x86_64
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: apk-x86_64-test
           path: x86-apk
           if-no-files-found: ignore
       - name: Lưu kết quả đo trên emulator
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: device-result-x86_64
           path: device-result
@@ -391,7 +395,7 @@ jobs:
     # hook native của engine có thể không chạy trên lớp dịch nên kết quả chỉ nói được "app dựng được UI và không crash lúc mở" (G-32).
     continue-on-error: true
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
         run: |
           set -euo pipefail
@@ -420,7 +424,7 @@ jobs:
               exit 1
             fi
           done
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: workspace-arm64-v8a
           path: dist
@@ -454,7 +458,7 @@ jobs:
             ! grep -q 'SCREENPOWER FAIL' screenpower-check.txt
       - name: Lưu logcat và kết quả kiểm cài đặt
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: emulator-logcat-api${{ matrix.api }}
           path: |
@@ -471,7 +475,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Giải nén mã nguồn từ file zip (chỉ khi repo mới chứa file .zip, không commit gì)
@@ -502,7 +506,7 @@ jobs:
               exit 1
             fi
           done
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: workspace-*
           path: dist
