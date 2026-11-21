@@ -367,7 +367,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
-          script: bash scripts/ci_run.sh "device_suite x86_64" python3 scripts/device_suite.py --apk-dir x86-apk --no-manual --minutes 3 --out device-result
+          script: bash scripts/x86_ci.sh --apk-dir x86-apk --no-manual --minutes 3 --out device-result
       - name: Đưa kết quả đo ra Annotations (đọc được không cần đăng nhập)
         if: always()
         run: python3 scripts/ci_annotate.py notice "device-result x86_64" device-result/REPORT.md --tail 45
@@ -383,7 +383,11 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: device-result-x86_64
-          path: device-result
+          path: |
+            device-result
+            x86-logcat.txt
+            x86-ps.txt
+            device-suite.log
           if-no-files-found: ignore
 
   emulator-smoke:
