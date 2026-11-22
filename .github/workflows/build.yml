@@ -386,6 +386,7 @@ jobs:
           path: |
             device-result
             x86-logcat.txt
+            x86-applog.txt
             x86-ps.txt
             device-suite.log
           if-no-files-found: ignore
