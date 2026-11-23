@@ -42,8 +42,8 @@ env:
   CORE_REF: ${{ inputs.core_ref || '89b59836c66f173756a4ae258cf379a957649820' }}
   APKEDITOR_URL: https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar
   APKEDITOR_SHA256: a9cd40df818845456be6d696de6110c89edf4b0a0580cb83438ed6b25a366e67
-  # Ngân sách kích thước APK (MB). Đặt lại theo số đo thật sau lần xanh đầu (P1-16).
-  APK_BUDGET_MB: '150'
+  # Ngân sách kích thước APK (MB). Đã đặt theo số đo thật: debug ≈ 9,2 MB (CI #39).
+  APK_BUDGET_MB: '30'
 
 jobs:
   checks:
@@ -225,11 +225,11 @@ jobs:
       - name: Test đơn vị (chưa chặn build cho tới khi xanh lần đầu, P1-16)
         continue-on-error: true
         working-directory: core
-        run: ./gradlew :workspace:testDebugUnitTest -Pabi="$ABI" --stacktrace
+        run: bash ../scripts/ci_soft.sh "Gradle test don vi ($ABI)" ./gradlew :workspace:testDebugUnitTest -Pabi="$ABI" --stacktrace
       - name: Lint (chưa chặn build cho tới khi xanh lần đầu, P1-16)
         continue-on-error: true
         working-directory: core
-        run: ./gradlew :workspace:lintDebug -Pabi="$ABI"
+        run: bash ../scripts/ci_soft.sh "Gradle lint ($ABI)" ./gradlew :workspace:lintDebug -Pabi="$ABI"
       - name: Gom APK và kiểm ABI
         run: |
           mkdir -p dist reports
@@ -253,6 +253,7 @@ jobs:
           for a in dist/workspace-*.apk; do
             python scripts/apk_report.py "$a" --budget-mb "$APK_BUDGET_MB" | tee -a "reports/apk-report-${ABI}.txt"
           done
+          python3 scripts/ci_annotate.py notice "APK report ${ABI}" "reports/apk-report-${ABI}.txt" --tail 24
       - name: Lưu APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
